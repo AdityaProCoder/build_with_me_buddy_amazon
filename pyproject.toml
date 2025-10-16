@@ -1,0 +1,10 @@
+[project]
+name = "build-with-me-buddy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "crew>=0.9.2",
+    "crewai[tools]>=0.203.1",
+]
