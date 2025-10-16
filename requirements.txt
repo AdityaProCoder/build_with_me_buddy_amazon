@@ -1,8 +1,0 @@
-crewai
-crewai-tools
-python-dotenv
-PyYAML
-composio_crewai
-langchain-google-genai
-flask
-composio
