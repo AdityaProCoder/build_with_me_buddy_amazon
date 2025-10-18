@@ -2,99 +2,157 @@
 from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv
 import os
-
-# Import your CrewAI class
+import time
 from src.crew import ProjectPartnerCrew
+from src.tools.composio_tools import composio_instance, MY_APP_USER_ID
+from litellm import RateLimitError
 
-# Load environment variables from .env file
 load_dotenv()
-
 app = Flask(__name__)
-# A secret key is required for Flask session management
 app.config['SECRET_KEY'] = os.urandom(24)
+
+
+# Helper function to execute crews with retries
+def execute_crew_with_retries(crew_function, inputs, max_retries=3):
+    retries = 0
+    while retries < max_retries:
+        try:
+            result = crew_function().kickoff(inputs=inputs)
+            if result is None: raise Exception("Crew kickoff returned no result.")
+            return result
+        except RateLimitError as e:
+            retries += 1
+            print(f"🚨 Rate limit error. Attempt {retries}/{max_retries}. Retrying in 60s...")
+            time.sleep(60)
+            if retries == max_retries: raise e
 
 
 @app.route('/')
 def index():
-    """Renders the main landing page."""
     return render_template('index.html')
 
 
-# This is the UPDATED, correct code for app.py
-
-# In app.py, replace the whole kickoff_crew_endpoint function
-
 @app.route('/kickoff_crew', methods=['POST'])
 def kickoff_crew_endpoint():
-    """API endpoint for the FIRST stage: Project Planning."""
+    """Stage 1: AI generates the initial plan."""
     data = request.get_json()
     project_details = data.get('project_details')
+    if not project_details: return jsonify({"error": "Project details are required."}), 400
 
-    if not project_details:
-        return jsonify({"error": "Project details are required."}), 400
-
-    print(f"🚀 Kicking off planning phase for: {project_details}")
-
+    print(f"🚀 Stage 1: Planning for -> {project_details}")
     try:
-        project_crew_manager = ProjectPartnerCrew()
-        inputs = {'project_details': project_details}
+        crew_manager = ProjectPartnerCrew()
+        result = execute_crew_with_retries(crew_manager.planning_crew, {'project_details': project_details})
 
-        planning_result_object = project_crew_manager.planning_crew().kickoff(inputs=inputs)
-        plan_string = planning_result_object.raw
-
-        # Save the plan to the session
-        session['project_plan'] = plan_string
-
-        # --- THIS IS THE FIX ---
-        # We must also save the original project details for the next step.
+        session['project_plan'] = result.raw
         session['project_details'] = project_details
-        # --- END OF FIX ---
 
-        print(f"✅ Planning phase finished.")
-
-        return jsonify({
-            "result": plan_string,
-            "prompt": "Enter Proceed to continue to add Parts to Cart 🛒"
-        })
-
+        print(f"✅ Stage 1 Finished.")
+        return jsonify({"result": result.raw, "prompt": "Enter 'Proceed' to generate the Bill of Materials."})
     except Exception as e:
-        print(f"❌ Error during Planning Crew execution: {e}")
-        return jsonify({"error": "An error occurred during the planning phase.", "details": str(e)}), 500
+        return jsonify({"error": "Error in Stage 1", "details": str(e)}), 500
 
-@app.route('/continue_crew', methods=['POST'])
-def continue_crew_endpoint():
-    """API endpoint for the SECOND stage: Building the project guide."""
-    # Retrieve the stored plan from the session
+
+@app.route('/generate_bom', methods=['POST'])
+def generate_bom_endpoint():
+    """Stage 2: AI thinks (in pieces), Python does (publishes)."""
     project_plan = session.get('project_plan')
     project_details = session.get('project_details')
+    if not project_plan or not project_details: return jsonify({"error": "Session data missing."}), 400
 
-    if not project_plan or not project_details:
-        return jsonify({"error": "No project plan found in session. Please start over."}), 400
-
-    print("🚀 Continuing to build phase...")
-
+    print(f"🚀 Stage 2: Generating BOM content for -> {project_details}")
     try:
-        project_crew_manager = ProjectPartnerCrew()
-        # The 'project_plan' from the first crew is now an input for the second crew
-        inputs = {
-            'project_details': project_details,
-            'project_plan': project_plan
-        }
+        crew_manager = ProjectPartnerCrew()
 
-        # Run the build crew
-        build_result = project_crew_manager.build_crew().kickoff(inputs=inputs)
+        # --- THINKING (in pieces) ---
+        print("🧠 Generating project name...")
+        name_result = execute_crew_with_retries(crew_manager.naming_crew, {'project_details': project_details})
+        project_name = name_result.raw
 
-        print(f"✅ Build phase finished.")
+        print("🧠 Designing conceptual BOM...")
+        design_result = execute_crew_with_retries(crew_manager.design_crew, {'project_plan': project_plan})
+        conceptual_bom_table = design_result.raw
 
-        # Clear the session after completion
-        session.pop('project_plan', None)
-        session.pop('project_details', None)
+        print("🧠 Sourcing final parts...")
+        sourcing_result = execute_crew_with_retries(crew_manager.sourcing_crew, {'final_bom': conceptual_bom_table})
+        full_bom_output = sourcing_result.raw
+        user_summary, final_bom_table = full_bom_output.split('---DATA_SEPARATOR---')
 
-        return jsonify({"result": build_result})
+        # --- DOING (Python code) ---
+        print("🤖 Python is now creating the Notion pages...")
+        project_page_result = composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID, slug="NOTION_CREATE_NOTION_PAGE",
+            arguments={"parent_id": os.getenv("NOTION_PARENT_PAGE_ID"), "title": project_name}
+        )
+        if not project_page_result.get("successful"): raise Exception(
+            f"Failed to create main project page: {project_page_result.get('error')}")
+
+        project_page_id = project_page_result['data']['id']
+        project_page_url = project_page_result['data']['url']
+        session['project_page_id'] = project_page_id
+        session['project_page_url'] = project_page_url
+
+        composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID, slug="NOTION_CREATE_NOTION_PAGE",
+            arguments={"parent_id": project_page_id, "title": "Conceptual BOM", "content": conceptual_bom_table}
+        )
+
+        composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID, slug="NOTION_CREATE_NOTION_PAGE",
+            arguments={"parent_id": project_page_id, "title": "Final Bill of Materials (BOM)",
+                       "content": final_bom_table}
+        )
+        print("✅ Notion pages created successfully.")
+
+        session['final_bom_data'] = final_bom_table.strip()
+
+        final_output_for_user = user_summary.strip() + f"\n\n[View your full project folder on Notion]({project_page_url})"
+        return jsonify({"result": final_output_for_user,
+                        "prompt": "Enter 'Proceed' to generate the final assets (code and diagram)."})
 
     except Exception as e:
-        print(f"❌ Error during Build Crew execution: {e}")
-        return jsonify({"error": "An error occurred during the build phase.", "details": str(e)}), 500
+        print(f"❌ Error during Stage 2: {e}")
+        return jsonify({"error": "Error in Stage 2", "details": str(e)}), 500
+
+
+# ... (The /generate_final_assets endpoint remains the same as the last working version) ...
+@app.route('/generate_final_assets', methods=['POST'])
+def generate_final_assets_endpoint():
+    """Stage 3: AI generates assets, Python publishes them."""
+    final_bom_data = session.get('final_bom_data')
+    project_page_id = session.get('project_page_id')
+    if not final_bom_data or not project_page_id: return jsonify({"error": "Session data missing."}), 400
+
+    print(f"🚀 Stage 3: Generating final assets...")
+    try:
+        crew_manager = ProjectPartnerCrew()
+        inputs = {'final_bom': final_bom_data}
+        ai_result = execute_crew_with_retries(crew_manager.final_assets_crew, inputs)
+
+        circuit_diagram = ai_result.tasks_outputs[0].raw_output
+        code_sketch = ai_result.tasks_outputs[1].raw_output
+
+        print("🤖 Python is now appending assets to the Notion page...")
+
+        final_content = f"## Circuit Diagram\n\n```mermaid\n{circuit_diagram}\n```\n\n## Arduino Code\n\n```cpp\n{code_sketch}\n```"
+
+        append_result = composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID,
+            slug="NOTION_APPEND_BLOCK_CHILDREN",
+            arguments={"block_id": project_page_id, "content": final_content}
+        )
+        if not append_result.get("successful"): raise Exception(
+            f"Failed to append assets: {append_result.get('error')}")
+
+        print("✅ Final assets appended successfully.")
+
+        project_page_url = session.get('project_page_url', '#')
+        session.clear()
+
+        return jsonify({"result": f"[View your complete project guide on Notion!]({project_page_url})"})
+    except Exception as e:
+        print(f"❌ Error during Stage 3: {e}")
+        return jsonify({"error": "Error in Stage 3", "details": str(e)}), 500
 
 
 if __name__ == '__main__':

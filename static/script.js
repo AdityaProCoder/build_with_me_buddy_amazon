@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let typeSpeed = isDeleting ? 100 : 200;
 
             if (!isDeleting && charIndex === fullPhrase.length) {
-                typeSpeed = 2000; // Pause after word is typed
+                typeSpeed = 2000;
                 isDeleting = true;
             } else if (isDeleting && charIndex === 0) {
                 isDeleting = false;
@@ -49,33 +49,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatMessages = document.getElementById('chat-messages');
     const pageOverlay = document.getElementById('page-overlay');
 
-    // --- State Management ---
+    // --- State Management for the multi-stage conversation ---
+    // States: 'start', 'awaiting_bom', 'awaiting_final_assets'
+    let conversationState = 'start';
     let isExpanded = false;
-    let isAwaitingConfirmation = false; // Manages the two-part crew flow
 
     // --- Event Listeners for UI ---
-
-    // Open the initial small chat pop-up
     chatbotToggle.addEventListener('click', () => {
         chatWindow.style.display = 'flex';
         chatbotToggle.style.display = 'none';
         chatInput.focus();
     });
 
-    // Function to close the chat window and reset everything
     function closeChat() {
         chatWindow.style.display = 'none';
         chatbotToggle.style.display = 'flex';
         chatbotContainer.classList.remove('expanded');
         pageOverlay.classList.remove('visible');
         isExpanded = false;
-        isAwaitingConfirmation = false; // Reset state on close
+        conversationState = 'start'; // Reset state on close
     }
 
     closeBtn.addEventListener('click', closeChat);
-    pageOverlay.addEventListener('click', closeChat); // Close chat when clicking overlay
+    pageOverlay.addEventListener('click', closeChat);
 
-    // Expand chat to centered modal on first character input
     chatInput.addEventListener('input', () => {
         if (!isExpanded && chatInput.value.length > 0) {
             chatbotContainer.classList.add('expanded');
@@ -89,23 +86,29 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const userMessage = chatInput.value.trim();
         const userInputLower = userMessage.toLowerCase();
-
         if (!userMessage) return;
 
         addMessage(userMessage, 'user-message');
         chatInput.value = '';
         showTypingIndicator();
 
-        let endpoint = '/kickoff_crew';
-        let body = { project_details: userMessage };
+        let endpoint = '';
+        let body = {};
+        const isConfirmation = ['looks good', 'proceed', 'yes', 'continue', 'ok'].includes(userInputLower);
 
-        // Logic to choose the correct endpoint based on conversation state
-        const confirmationPhrases = ['looks good', 'proceed', 'yes', 'continue', 'ok'];
-        if (isAwaitingConfirmation && confirmationPhrases.includes(userInputLower)) {
-            endpoint = '/continue_crew';
-            body = {}; // Data is already on the server in the session
+        // State machine to determine which endpoint to call
+        if (conversationState === 'start') {
+            endpoint = '/kickoff_crew';
+            body = { project_details: userMessage };
+        } else if (conversationState === 'awaiting_bom' && isConfirmation) {
+            endpoint = '/generate_bom';
+        } else if (conversationState === 'awaiting_final_assets' && isConfirmation) {
+            endpoint = '/generate_final_assets';
         } else {
-            isAwaitingConfirmation = false; // Treat as a new request
+            // Handle cases where confirmation is expected but not given
+            removeTypingIndicator();
+            addMessage("Please type 'Proceed' to continue, or start a new project description.", 'bot-message');
+            return;
         }
 
         try {
@@ -116,46 +119,51 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             removeTypingIndicator();
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.details || `Server error: ${response.status}`);
+            }
 
             const data = await response.json();
 
-            // Handle structured response from the server
-            if (data.result) {
-                addMessage(data.result, 'bot-message');
-            }
-            if (data.prompt) {
-                addPromptMessage(data.prompt);
-            }
+            if (data.result) addMessage(data.result, 'bot-message');
+            if (data.prompt) addPromptMessage(data.prompt);
 
-            // Update state based on which endpoint was called
+            // Update conversation state based on the successful API call
             if (endpoint === '/kickoff_crew') {
-                isAwaitingConfirmation = true; // Now waiting for user approval
-            } else {
-                isAwaitingConfirmation = false; // Crew finished, reset state
+                conversationState = 'awaiting_bom';
+            } else if (endpoint === '/generate_bom') {
+                conversationState = 'awaiting_final_assets';
+            } else if (endpoint === '/generate_final_assets') {
+                conversationState = 'start'; // Cycle is complete, ready for a new project
             }
-
         } catch (error) {
             console.error("Error fetching from API:", error);
-            addMessage("Sorry, I'm having trouble connecting. Please try again later.", 'bot-message');
+            addMessage(`Sorry, an error occurred: ${error.message}`, 'bot-message');
             removeTypingIndicator();
-            isAwaitingConfirmation = false; // Reset state on any error
+            conversationState = 'start'; // Reset state on error
         }
     });
 
     // --- Helper Functions ---
-
-    // Adds a standard user or bot message to the chat
     function addMessage(text, className) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', className);
-        // Use innerHTML to correctly render markdown-like bolding for headlines
-        messageDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Convert markdown bolding (**) to <strong> tags
+        let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Convert markdown links ([Text](URL)) to <a> tags
+        html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+        // Convert newlines to <br> tags
+        html = html.replace(/\n/g, '<br>');
+
+        messageDiv.innerHTML = html;
         chatMessages.appendChild(messageDiv);
         scrollToBottom();
     }
 
-    // Adds the special, styled prompt message
     function addPromptMessage(text) {
         const promptDiv = document.createElement('div');
         promptDiv.classList.add('message', 'bot-message', 'prompt-message');
@@ -164,9 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     }
 
-    // Shows the "..." typing indicator
     function showTypingIndicator() {
-        if (chatMessages.querySelector('.typing-indicator')) return; // Don't add multiple
+        if (chatMessages.querySelector('.typing-indicator')) return;
         const indicator = document.createElement('div');
         indicator.classList.add('message', 'bot-message', 'typing-indicator');
         indicator.innerHTML = '<span></span><span></span><span></span>';
@@ -174,13 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     }
 
-    // Removes the typing indicator
     function removeTypingIndicator() {
         const indicator = chatMessages.querySelector('.typing-indicator');
         if (indicator) indicator.remove();
     }
 
-    // Auto-scrolls the chat window to the bottom
     function scrollToBottom() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }

@@ -6,3 +6,4 @@ composio_crewai
 langchain-google-genai
 flask
 composio
+exa-py

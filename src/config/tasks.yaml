@@ -1,7 +1,6 @@
-# src/config/tasks.yaml (Final Corrected Version)
+# src/config/tasks.yaml
 tasks:
   project_planning_task:
-    agent: "project_architect"
     description: >
       Analyze the user's request: '{project_details}'. Your task is to create an
       extremely concise, high-level project plan. You MUST follow the format provided
@@ -26,65 +25,35 @@ tasks:
       **Budget:**
       - A bullet point stating the budget.
 
-  component_reasoning_task:
-    agent: "system_designer"
-    description: >
-      Read the following project plan carefully. Your task is to reason about the
-      necessary electronic components and create a conceptual, bulleted list of parts.
-      Do not include prices or links. Just list the types of parts needed.
+  project_naming_task:
+    description: "Create a short, catchy name (3-5 words max) for the project: {project_details}"
+    expected_output: "A single string containing the short project name."
 
-      Project Plan:
-      ---
-      {project_plan}
-      ---
-    expected_output: "A clear, bulleted list of conceptual electronic components (e.g., '- ESP32 Microcontroller', '- 5mW Red Laser Diode', '- LDR Light Sensor')."
+    # In src/config/tasks.yaml
+
+  component_reasoning_task:
+    description: >
+      Read the project plan. Based on your internal knowledge as an expert engineer,
+      create a conceptual list of components.
+      
+      CRITICAL INSTRUCTION: You MUST ONLY list physical, purchasable hardware components.
+      Do NOT list software, libraries, firmware, algorithms, data, or any other non-physical items.
+      
+      Project Plan: {project_plan}
+    expected_output: "A markdown table with columns: 'Sl no.', 'Component Name', 'Quantity', 'Purpose'."
 
   component_sourcing_task:
-    agent: "parts_sourcer"
     description: >
-      You have been given a list of conceptual components. Your task is to use your
-      web search tool to find each component on a single website (e.g., Digi-Key, SparkFun, or a local Indian electronics store like Robu.in).
-      For each component, create a line item with its name, price, and the full URL.
-      You MUST use the tool for this task.
-    expected_output: "A Bill of Materials (BOM) where each line contains the component name, its price, and a direct purchase URL from the chosen website."
-    context:
-      - component_reasoning_task
-
-  budget_optimization_task:
-    agent: "budget_optimizer"
-    description: >
-      Review the BOM provided by the Hardware Specialist. Compare its total cost against 
-      the user's budget. If it's over budget, suggest specific, cheaper alternatives. 
-      If it's within budget, approve it as is.
-    expected_output: "The final Bill of Materials that fits within the specified budget."
-    context:
-      - component_sourcing_task
+      You have a table of conceptual components. For each, use your search tool to find a product on `robu.in`.
+      You must produce two outputs separated by '---DATA_SEPARATOR---':
+      1. A simple user-facing summary with categories and a calculated total price.
+      2. A detailed markdown table with 'Sl No', 'Component Name', 'Quantity', 'Price', 'URL'.
+    expected_output: "A user summary, '---DATA_SEPARATOR---', and a detailed markdown table."
 
   circuit_design_task:
-    agent: "circuit_designer"
-    description: >
-      Using the final, approved list of components from the optimized BOM, create a 
-      complete circuit wiring diagram in Mermaid.js code format.
-    expected_output: "A single, clean code block containing the Mermaid.js code for the circuit diagram."
-    context:
-      - budget_optimization_task
+    description: "Using the final BOM markdown table, create a Mermaid.js circuit diagram. Final BOM: {final_bom}"
+    expected_output: "A code block containing the Mermaid.js diagram."
 
   code_generation_task:
-    agent: "code_wizard"
-    description: >
-      Write a complete, well-commented Arduino starter sketch (.ino format). The code 
-      must use the final BOM and the circuit diagram to ensure all pin definitions 
-      and logic are correct.
-    expected_output: "A single code block containing the complete and well-documented Arduino code."
-    context:
-      - circuit_design_task
-
-  storyboard_creation_task:
-    agent: "storyboard_creator"
-    description: >
-      Assemble all generated assets: the master plan, the final BOM, the Mermaid.js 
-      circuit diagram, and the Arduino code. Create a new, well-formatted page on 
-      Notion and publish all these assets as a cohesive, step-by-step guide.
-    expected_output: "A public URL to the newly created Notion page containing the complete project guide."
-    context:
-      - code_generation_task
+    description: "Write a complete Arduino sketch based on the final BOM markdown table. Final BOM: {final_bom}"
+    expected_output: "A code block containing the Arduino code."

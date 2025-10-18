@@ -1,9 +1,9 @@
-# check_tools.py (Final Working Version)
+# check_tools.py (The Simplest Possible Version)
 import os
 from dotenv import load_dotenv
 from composio import Composio
 
-print("--- Listing all available Composio Tools ---")
+print("--- Listing all available Composio Tools for your account ---")
 load_dotenv()
 
 if not os.getenv('COMPOSIO_API_KEY'):
@@ -13,25 +13,22 @@ else:
     try:
         composio_instance = Composio()
 
-        # --- THIS IS THE CORRECT METHOD ---
-        # Calling .tools.get() with no arguments lists all available tools.
-        available_tools = composio_instance.tools.get()
+        # --- THIS IS THE FINAL ATTEMPT ---
+        # Calling the function with NO arguments, as per the last error.
+        available_tools = composio_instance.tools.get_raw_composio_tools()
 
         print("\n" + "=" * 50)
-        print("      AVAILABLE COMPOSIO TOOLS")
+        print("      YOUR AVAILABLE COMPOSIO TOOLS")
         print("=" * 50)
 
         if not available_tools:
-            print("No tools found. Please check your authentication.")
+            print("No tools found. Please check your Composio account connections.")
         else:
-            print("You can use any of the following tool names in your agents.yaml file:")
-            # The tool name is stored in the .slug attribute of each tool object
+            print("You can use any of the following tool names in your project files:")
             for tool in available_tools:
-                print(f"- {tool.slug}")
+                print(f"- {tool['slug']}")
 
         print("\n" + "=" * 50)
-        print("Example: 'google-search.search_the_web'")
-        print("=" * 50)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}")
