@@ -1,4 +1,4 @@
-# app.py
+# app.py (The Definitive, Corrected Version)
 from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv
 import os
@@ -42,29 +42,34 @@ def kickoff_crew_endpoint():
     print(f"🚀 Stage 1: Planning for -> {project_details}")
     try:
         crew_manager = ProjectPartnerCrew()
-        result = execute_crew_with_retries(crew_manager.planning_crew, {'project_details': project_details})
+        inputs = {'project_details': project_details}
+        result = execute_crew_with_retries(crew_manager.planning_crew, inputs)
 
         session['project_plan'] = result.raw
         session['project_details'] = project_details
 
         print(f"✅ Stage 1 Finished.")
-        return jsonify({"result": result.raw, "prompt": "Enter 'Proceed' to generate the Bill of Materials."})
+        return jsonify({
+            "result": result.raw,
+            "prompt": "Enter 'Proceed' to generate the Bill of Materials."
+        })
     except Exception as e:
+        print(f"❌ Error during Stage 1: {e}")
         return jsonify({"error": "Error in Stage 1", "details": str(e)}), 500
 
 
 @app.route('/generate_bom', methods=['POST'])
 def generate_bom_endpoint():
-    """Stage 2: AI thinks (in pieces), Python does (publishes)."""
+    """Stage 2: AI thinks, Python does."""
     project_plan = session.get('project_plan')
     project_details = session.get('project_details')
     if not project_plan or not project_details: return jsonify({"error": "Session data missing."}), 400
 
     print(f"🚀 Stage 2: Generating BOM content for -> {project_details}")
     try:
+        # === PART 1: The "Thinker" (AI Crews running in sequence) ===
         crew_manager = ProjectPartnerCrew()
 
-        # --- THINKING (in pieces) ---
         print("🧠 Generating project name...")
         name_result = execute_crew_with_retries(crew_manager.naming_crew, {'project_details': project_details})
         project_name = name_result.raw
@@ -76,10 +81,18 @@ def generate_bom_endpoint():
         print("🧠 Sourcing final parts...")
         sourcing_result = execute_crew_with_retries(crew_manager.sourcing_crew, {'final_bom': conceptual_bom_table})
         full_bom_output = sourcing_result.raw
+
+        # --- THIS IS THE ROBUSTNESS FIX ---
+        # Check if the AI succeeded before trying to split the string.
+        if '---DATA_SEPARATOR---' not in full_bom_output:
+            raise Exception(
+                f"Sourcing crew failed to generate the correct output format. It returned: '{full_bom_output}'")
+
         user_summary, final_bom_table = full_bom_output.split('---DATA_SEPARATOR---')
 
-        # --- DOING (Python code) ---
+        # === PART 2: The "Doer" (Python Code) ===
         print("🤖 Python is now creating the Notion pages...")
+        # ... (The rest of the Notion tool calls are correct and remain the same) ...
         project_page_result = composio_instance.tools.execute(
             user_id=MY_APP_USER_ID, slug="NOTION_CREATE_NOTION_PAGE",
             arguments={"parent_id": os.getenv("NOTION_PARENT_PAGE_ID"), "title": project_name}
@@ -92,17 +105,30 @@ def generate_bom_endpoint():
         session['project_page_id'] = project_page_id
         session['project_page_url'] = project_page_url
 
-        composio_instance.tools.execute(
+        conceptual_page_result = composio_instance.tools.execute(
             user_id=MY_APP_USER_ID, slug="NOTION_CREATE_NOTION_PAGE",
-            arguments={"parent_id": project_page_id, "title": "Conceptual BOM", "content": conceptual_bom_table}
+            arguments={"parent_id": project_page_id, "title": "Conceptual BOM"}
+        )
+        if not conceptual_page_result.get("successful"): raise Exception(
+            f"Failed to create Conceptual BOM page: {conceptual_page_result.get('error')}")
+        conceptual_page_id = conceptual_page_result['data']['id']
+        composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID, slug="NOTION_APPEND_BLOCK_CHILDREN",
+            arguments={"block_id": conceptual_page_id, "content": conceptual_bom_table}
         )
 
-        composio_instance.tools.execute(
+        final_bom_page_result = composio_instance.tools.execute(
             user_id=MY_APP_USER_ID, slug="NOTION_CREATE_NOTION_PAGE",
-            arguments={"parent_id": project_page_id, "title": "Final Bill of Materials (BOM)",
-                       "content": final_bom_table}
+            arguments={"parent_id": project_page_id, "title": "Final Bill of Materials (BOM)"}
         )
-        print("✅ Notion pages created successfully.")
+        if not final_bom_page_result.get("successful"): raise Exception(
+            f"Failed to create Final BOM page: {final_bom_page_result.get('error')}")
+        final_bom_page_id = final_bom_page_result['data']['id']
+        composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID, slug="NOTION_APPEND_BLOCK_CHILDREN",
+            arguments={"block_id": final_bom_page_id, "content": final_bom_table}
+        )
+        print("✅ Notion pages created and populated successfully.")
 
         session['final_bom_data'] = final_bom_table.strip()
 
@@ -115,10 +141,10 @@ def generate_bom_endpoint():
         return jsonify({"error": "Error in Stage 2", "details": str(e)}), 500
 
 
-# ... (The /generate_final_assets endpoint remains the same as the last working version) ...
 @app.route('/generate_final_assets', methods=['POST'])
 def generate_final_assets_endpoint():
     """Stage 3: AI generates assets, Python publishes them."""
+    # ... (This function is correct and needs no changes) ...
     final_bom_data = session.get('final_bom_data')
     project_page_id = session.get('project_page_id')
     if not final_bom_data or not project_page_id: return jsonify({"error": "Session data missing."}), 400
@@ -129,6 +155,7 @@ def generate_final_assets_endpoint():
         inputs = {'final_bom': final_bom_data}
         ai_result = execute_crew_with_retries(crew_manager.final_assets_crew, inputs)
 
+        # We must access the individual task outputs to separate them.
         circuit_diagram = ai_result.tasks_outputs[0].raw_output
         code_sketch = ai_result.tasks_outputs[1].raw_output
 

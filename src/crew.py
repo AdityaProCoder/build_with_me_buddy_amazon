@@ -27,7 +27,7 @@ class ProjectPartnerCrew:
             'project_architect': Agent(config=AGENTS_CONFIG['agents']['project_architect'], llm=manager_llm, memory=True, verbose=True),
             'project_namer': Agent(config=AGENTS_CONFIG['agents']['project_namer'], llm=worker_llm, memory=True, verbose=True),
             'system_designer': Agent(config=AGENTS_CONFIG['agents']['system_designer'], llm=worker_llm, memory=True, verbose=True, max_iter=5),
-            'parts_sourcer': Agent(config=AGENTS_CONFIG['agents']['parts_sourcer'], tools=tools_for_agents, llm=worker_llm, memory=True, verbose=True, max_iter=15),
+            'parts_sourcer': Agent(config=AGENTS_CONFIG['agents']['parts_sourcer'], tools=tools_for_agents, llm=worker_llm, memory=True, verbose=True, max_iter=8),
             'circuit_designer': Agent(config=AGENTS_CONFIG['agents']['circuit_designer'], llm=worker_llm, memory=True, verbose=True),
             'code_wizard': Agent(config=AGENTS_CONFIG['agents']['code_wizard'], llm=worker_llm, memory=True, verbose=True)
         }

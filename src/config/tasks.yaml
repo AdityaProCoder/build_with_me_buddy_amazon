@@ -44,10 +44,16 @@ tasks:
 
   component_sourcing_task:
     description: >
-      You have a table of conceptual components. For each, use your search tool to find a product on `robu.in`.
+      You have been given a markdown table of conceptual components below. For each component in the table,
+      use your search tool to find a specific product on `robu.in`. Your search query should be precise.
       You must produce two outputs separated by '---DATA_SEPARATOR---':
       1. A simple user-facing summary with categories and a calculated total price.
       2. A detailed markdown table with 'Sl No', 'Component Name', 'Quantity', 'Price', 'URL'.
+      
+      Here is the conceptual component table:
+      ---
+      {final_bom}
+      ---
     expected_output: "A user summary, '---DATA_SEPARATOR---', and a detailed markdown table."
 
   circuit_design_task:
