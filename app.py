@@ -139,69 +139,87 @@ def generate_bom_endpoint():
 
 # In app.py, replace the entire generate_final_assets_endpoint function
 
+    
 @app.route('/generate_final_assets', methods=['POST'])
 def generate_final_assets_endpoint():
-    """Stage 3: AI generates assets (in pieces), Python publishes them."""
+    """Stage 3: AI generates assets, Python creates a NEW page and populates it."""
     final_bom_data = session.get('final_bom_data')
     project_page_id = session.get('project_page_id')
-    project_plan = session.get('project_plan')
+    project_plan = session.get('project_plan') # This is needed for the diagram task
     if not all([final_bom_data, project_page_id, project_plan]):
         return jsonify({"error": "Session data missing."}), 400
 
     print(f"🚀 Stage 3: Generating final assets...")
     try:
+        # === PART 1: The "Thinker" (AI Crew) ===
         crew_manager = ProjectPartnerCrew()
+        # The inputs must contain everything the tasks in this crew need
+        inputs = {'final_bom': final_bom_data, 'project_plan': project_plan}
+        
+        # --- THIS IS THE FIX: Call the correct crew name from your working file ---
+        ai_result = crew_manager.final_assets_crew().kickoff(inputs=inputs)
 
-        # === PART 1: The "Thinker" (AI Crews running in sequence) ===
-        print("🧠 Generating all diagrams...")
-        diagram_inputs = {'final_bom': final_bom_data, 'project_plan': project_plan}
-        diagram_result = crew_manager.diagram_generation_crew().kickoff(inputs=diagram_inputs)
-        diagram_json_output = diagram_result.raw
-
-        print("🧠 Generating Arduino code...")
-        code_inputs = {'final_bom': final_bom_data}
-        code_result = crew_manager.code_generation_crew().kickoff(inputs=code_inputs)
-        code_sketch = code_result.raw
+        # --- THIS IS THE FIX: Correctly access outputs from the multi-task crew ---
+        # This will now work because the crew call is correct and we assume success.
+        # Task 0: circuit_design_task
+        # Task 1: code_generation_task
+        # Note: The order here must match the `tasks` list in your crew.py's final_assets_crew
+        circuit_diagram_raw = ai_result.tasks_outputs[0].raw_output
+        code_sketch = ai_result.tasks_outputs[1].raw_output
         
         # === PART 2: The "Doer" (Python Code) ===
-        print("🤖 Python is now parsing and appending assets to the Notion page...")
+        print("🤖 Python is now creating and populating the final guide page...")
         
-        def extract_json_block(text: str) -> dict:
-            match = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-            if not match:
-                try: return json.loads(text)
-                except json.JSONDecodeError: raise ValueError("Could not find a valid JSON block in the diagram agent's output.")
-            return json.loads(match.group(1))
-        
-        diagram_data = extract_json_block(diagram_json_output)
-        workflow_mermaid = diagram_data.get("workflow_mermaid", "Error: Workflow diagram not found.")
-        architecture_mermaid = diagram_data.get("architecture_mermaid", "Error: Architecture diagram not found.")
-        circuit_mermaid = diagram_data.get("circuit_mermaid", "Error: Circuit diagram not found.")
+        # Helper function to clean up code blocks from AI output
+        def clean_code_block(text: str, language: str) -> str:
+            match = re.search(rf"```{language}\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+            return match.group(1).strip() if match else text.strip()
 
-        final_content = (
-            f"## Workflow Diagram\n\n```mermaid\n{workflow_mermaid}\n```\n\n"
-            f"## Architecture Diagram\n\n```mermaid\n{architecture_mermaid}\n```\n\n"
-            f"## Circuit Diagram\n\n```mermaid\n{circuit_mermaid}\n```\n\n"
-            f"## Arduino Code\n\n```cpp\n{code_sketch}\n```"
+        # We need a separate call for the high-level diagrams if you want them.
+        # For now, let's just use the circuit and code as requested.
+        circuit_mermaid = clean_code_block(circuit_diagram_raw, "mermaid")
+
+        # --- This is the definitive "Create, then Populate" Logic for the final guide ---
+        
+        # 1. CREATE a new, blank page for the guide inside the main project page
+        guide_page_result = composio_instance.tools.execute(
+            user_id=MY_APP_USER_ID,
+            slug="NOTION_CREATE_NOTION_PAGE",
+            arguments={"parent_id": project_page_id, "title": "Full Project Guide"}
         )
+        if not guide_page_result.get("successful"):
+            raise Exception(f"Failed to create the final guide page: {guide_page_result.get('error')}")
+        
+        guide_page_id = guide_page_result['data']['id']
+        
+        # 2. POPULATE that new page with all the final content
+        final_content_blocks = [
+            {"content_block": {"content": "## Circuit Diagram"}},
+            {"content_block": {"type": "code", "code": { "language": "mermaid", "rich_text": [{"type": "text", "text": {"content": circuit_mermaid}}] }}},
+            {"content_block": {"content": "## Arduino Code"}},
+            {"content_block": {"type": "code", "code": { "language": "cpp", "rich_text": [{"type": "text", "text": {"content": clean_code_block(code_sketch, 'cpp')}}] }}}
+        ]
         
         append_result = composio_instance.tools.execute(
             user_id=MY_APP_USER_ID,
             slug="NOTION_ADD_MULTIPLE_PAGE_CONTENT",
-            arguments={"parent_block_id": project_page_id, "content_blocks": [{"content_block": {"content": final_content}}]}
+            arguments={"parent_block_id": guide_page_id, "content_blocks": final_content_blocks}
         )
         if not append_result.get("successful"):
-            raise Exception(f"Failed to append final assets: {append_result.get('error')}")
+            raise Exception(f"Failed to append final assets to the guide page: {append_result.get('error')}")
 
-        print("✅ Final assets appended successfully.")
+        print("✅ Final guide page created and populated successfully.")
         
         project_page_url = session.get('project_page_url', '#')
         session.clear()
         
-        return jsonify({"result": f"[View your complete project guide on Notion!]({project_page_url})"})
+        # The link returned to the user still points to the main project FOLDER
+        return jsonify({"result": f"[View your complete project folder on Notion!]({project_page_url})"})
     except Exception as e:
         print(f"❌ Error during Stage 3: {e}")
         return jsonify({"error": "Error in Stage 3", "details": str(e)}), 500
+
+  
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False, port=5000)
