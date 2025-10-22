@@ -52,24 +52,12 @@ class ProjectPartnerCrew:
         task = Task(**TASKS_CONFIG['tasks']['component_sourcing_task'], agent=self.agents['parts_sourcer'])
         return Crew(agents=[self.agents['parts_sourcer']], tasks=[task], process=Process.sequential, verbose=True)
 
-    def final_assets_crew(self):
-        """Generates the final technical assets: diagrams and code."""
-        # The diagram task now runs first and creates all three diagrams.
-        diagram_task = Task(
-            **TASKS_CONFIG['tasks']['diagram_generation_task'],
-            agent=self.agents['diagram_specialist']
-        )
-        
-        # The code task runs next, using the same BOM input.
-        code_task = Task(
-            **TASKS_CONFIG['tasks']['code_generation_task'],
-            agent=self.agents['code_wizard'],
-            context=[diagram_task]
-        )
-        
-        return Crew(
-            agents=[self.agents['diagram_specialist'], self.agents['code_wizard']],
-            tasks=[diagram_task, code_task],
-            process=Process.sequential,
-            verbose=True
-        )
+    def diagram_generation_crew(self):
+        """Generates all the Mermaid diagrams in a single JSON object."""
+        task = Task(**TASKS_CONFIG['tasks']['diagram_generation_task'], agent=self.agents['diagram_specialist'])
+        return Crew(agents=[self.agents['diagram_specialist']], tasks=[task], process=Process.sequential, verbose=True)
+
+    def code_generation_crew(self):
+        """Generates the final Arduino code."""
+        task = Task(**TASKS_CONFIG['tasks']['code_generation_task'], agent=self.agents['code_wizard'])
+        return Crew(agents=[self.agents['code_wizard']], tasks=[task], process=Process.sequential, verbose=True)

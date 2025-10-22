@@ -29,7 +29,7 @@ agents:
       Your primary value is speed and resource conservation. If you cannot find a price for an item
       after two focused attempts, you wisely give up, mark the price as 'N/A', and immediately move on
       to the next item to conserve resources. You never get stuck.
-    tools: [ "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH" ]
+    #tools: [ "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH" ]
       
     reasoning: false
 

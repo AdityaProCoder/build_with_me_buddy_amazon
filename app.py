@@ -141,7 +141,7 @@ def generate_bom_endpoint():
 
 @app.route('/generate_final_assets', methods=['POST'])
 def generate_final_assets_endpoint():
-    """Stage 3: AI generates assets, Python publishes them."""
+    """Stage 3: AI generates assets (in pieces), Python publishes them."""
     final_bom_data = session.get('final_bom_data')
     project_page_id = session.get('project_page_id')
     project_plan = session.get('project_plan')
@@ -150,19 +150,22 @@ def generate_final_assets_endpoint():
 
     print(f"🚀 Stage 3: Generating final assets...")
     try:
-        # === PART 1: The "Thinker" (AI Crew) ===
         crew_manager = ProjectPartnerCrew()
-        inputs = {'final_bom': final_bom_data, 'project_plan': project_plan}
-        ai_result = crew_manager.final_assets_crew().kickoff(inputs=inputs)
 
-        # The output of each task is now clearly separated in the results
-        diagram_json_output = ai_result.tasks_outputs[0].raw_output
-        code_sketch = ai_result.tasks_outputs[1].raw_output
+        # === PART 1: The "Thinker" (AI Crews running in sequence) ===
+        print("🧠 Generating all diagrams...")
+        diagram_inputs = {'final_bom': final_bom_data, 'project_plan': project_plan}
+        diagram_result = crew_manager.diagram_generation_crew().kickoff(inputs=diagram_inputs)
+        diagram_json_output = diagram_result.raw
+
+        print("🧠 Generating Arduino code...")
+        code_inputs = {'final_bom': final_bom_data}
+        code_result = crew_manager.code_generation_crew().kickoff(inputs=code_inputs)
+        code_sketch = code_result.raw
         
         # === PART 2: The "Doer" (Python Code) ===
         print("🤖 Python is now parsing and appending assets to the Notion page...")
         
-        # This helper function robustly extracts the JSON block.
         def extract_json_block(text: str) -> dict:
             match = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
             if not match:
@@ -173,10 +176,8 @@ def generate_final_assets_endpoint():
         diagram_data = extract_json_block(diagram_json_output)
         workflow_mermaid = diagram_data.get("workflow_mermaid", "Error: Workflow diagram not found.")
         architecture_mermaid = diagram_data.get("architecture_mermaid", "Error: Architecture diagram not found.")
-        # We now extract the new circuit diagram from the same JSON
         circuit_mermaid = diagram_data.get("circuit_mermaid", "Error: Circuit diagram not found.")
 
-        # Format all the final content for Notion
         final_content = (
             f"## Workflow Diagram\n\n```mermaid\n{workflow_mermaid}\n```\n\n"
             f"## Architecture Diagram\n\n```mermaid\n{architecture_mermaid}\n```\n\n"
@@ -184,7 +185,6 @@ def generate_final_assets_endpoint():
             f"## Arduino Code\n\n```cpp\n{code_sketch}\n```"
         )
         
-        # Append all content to the main project page at once
         append_result = composio_instance.tools.execute(
             user_id=MY_APP_USER_ID,
             slug="NOTION_ADD_MULTIPLE_PAGE_CONTENT",
