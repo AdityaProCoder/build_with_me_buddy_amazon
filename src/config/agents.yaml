@@ -19,7 +19,7 @@ agents:
     backstory: "You are a meticulous engineer who creates a logical blueprint of component types needed to make a project work. You do not search the internet."
     reasoning: false
     
-  # --- THIS IS THE FIX ---
+  
   parts_sourcer:
     role: "Hyper-Efficient Component Sourcing Specialist"
     goal: "Find component data from Indian online stores using ONLY search result snippets, then compile a final report."
@@ -29,7 +29,7 @@ agents:
       Your primary value is speed and resource conservation. If you cannot find a price for an item
       after two focused attempts, you wisely give up, mark the price as 'N/A', and immediately move on
       to the next item to conserve resources. You never get stuck.
-    #tools: [ "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH" ]
+    tools: [ "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH" ]
       
     reasoning: false
 
