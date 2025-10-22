@@ -1,6 +1,5 @@
 // static/script.js
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Typewriter Effect Logic ---
     const typewriterElement = document.getElementById('typewriter-hero');
     const phrases = ["Innovate.", "Create.", "Inspire."];
 
@@ -39,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     runTypewriter();
 
-    // --- Chatbot UI and State Elements ---
     const chatbotContainer = document.getElementById('chatbot-container');
     const chatbotToggle = document.getElementById('chatbot-toggle');
     const chatWindow = document.getElementById('chat-window');
@@ -49,12 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatMessages = document.getElementById('chat-messages');
     const pageOverlay = document.getElementById('page-overlay');
 
-    // --- State Management for the multi-stage conversation ---
-    // States: 'start', 'awaiting_bom', 'awaiting_final_assets'
     let conversationState = 'start';
     let isExpanded = false;
 
-    // --- Event Listeners for UI ---
     chatbotToggle.addEventListener('click', () => {
         chatWindow.style.display = 'flex';
         chatbotToggle.style.display = 'none';
@@ -81,7 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Main Form Submission Logic ---
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const userMessage = chatInput.value.trim();
@@ -145,18 +139,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Helper Functions ---
     function addMessage(text, className) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', className);
 
-        // Convert markdown bolding (**) to <strong> tags
         let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-        // Convert markdown links ([Text](URL)) to <a> tags
         html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
 
-        // Convert newlines to <br> tags
         html = html.replace(/\n/g, '<br>');
 
         messageDiv.innerHTML = html;

@@ -35,7 +35,6 @@ body {
     visibility: visible;
 }
 
-/* --- General Layout --- */
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -101,7 +100,6 @@ nav a {
     }
 }
 
-/* --- Chatbot Styles --- */
 #chatbot-toggle {
     position: fixed;
     bottom: 20px;
@@ -125,7 +123,6 @@ nav a {
 }
 
 #chat-window {
-    /* Initial State: Corner pop-up (like Image 1) */
     display: none;
     flex-direction: column;
     position: fixed;
@@ -139,24 +136,21 @@ nav a {
     overflow: hidden;
     z-index: 1001;
     box-shadow: 0 0 25px rgba(0, 255, 0, 0.3);
-    /* Set initial transform for smooth animation */
     transform: translate(0, 0);
-    /* Animate ALL the properties that will change */
     transition: width 0.5s ease, height 0.5s ease, top 0.5s ease, left 0.5s ease, transform 0.5s ease, border-radius 0.5s ease;
 }
 
 #chatbot-container.expanded #chat-window {
-    /* Expanded State: Centered modal (themed like Image 1) */
-    bottom: auto; /* Unset old positioning */
+    bottom: auto;
     right: auto;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%); /* Center the element */
+    transform: translate(-50%, -50%);
     width: 90vw;
     max-width: 800px;
     height: 85vh;
     max-height: 750px;
-    border-radius: 20px; /* More rounded corners for the modal */
+    border-radius: 20px;
 }
 
 #chat-header {
@@ -264,25 +258,21 @@ nav a {
     stroke: var(--background-color);
 }
 .message strong {
-  color: #00ffff; /* A bright, contrasting cyan */
-  text-shadow: 0 0 3px #00ffff; /* Adds a subtle glow */
+  color: #00ffff;
+  text-shadow: 0 0 3px #00ffff;
 }
 
-/* Defines the blinking animation */
 @keyframes blink-animation {
   50% {
     opacity: 0.4;
   }
 }
 
-/* Styles the special prompt message */
 .prompt-message {
-  margin-top: 15px; /* Adds space above the prompt */
-  text-align: center; /* Centers the text */
+  margin-top: 15px;
+  text-align: center;
   font-weight: bold;
-  background-color: transparent; /* Removes the default message bubble */
-
-  /* Applies the headline color and the blinking animation */
+  background-color: transparent;
   color: #00ffff;
   text-shadow: 0 0 3px #00ffff;
   animation: blink-animation 1.5s infinite;

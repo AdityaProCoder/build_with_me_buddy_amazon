@@ -29,8 +29,6 @@ tasks:
     description: "Create a short, catchy name (3-5 words max) for the project: {project_details}"
     expected_output: "A single string containing the short project name."
 
-    
-
   component_reasoning_task:
     description: >
       Read the project plan. Based on your internal knowledge as an expert engineer,

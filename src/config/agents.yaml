@@ -1,6 +1,5 @@
 # src/config/agents.yaml
 agents:
-  # ... (project_architect, project_namer, system_designer are correct) ...
   project_architect:
     role: "Project Architect"
     goal: "Create a concise, high-level project plan."
@@ -37,7 +36,7 @@ agents:
     role: "Mermaid Diagram Specialist"
     goal: "Generate two valid Mermaid diagram source strings (a workflow and an architecture diagram) based on a project summary, and return them in a single JSON object."
     backstory: "You are a meticulous and strict generator of Mermaid diagrams. You always follow formatting rules precisely and return ONLY a valid JSON object with the requested diagram source code. You do not render images; you only produce the text-based code for the diagrams."
-    reasoning: false # Reasoning is needed to generate the complex diagrams.
+    reasoning: false
 
 
   code_wizard:
