@@ -1,6 +1,6 @@
 # app.py
 from dotenv import load_dotenv
-import os
+import os, re
 
 # --- THIS IS THE DEFINITIVE FIX ---
 # This block MUST run before any other application imports (like src.crew).
@@ -137,32 +137,61 @@ def generate_bom_endpoint():
 
   
 
+# In app.py, replace the entire generate_final_assets_endpoint function
+
 @app.route('/generate_final_assets', methods=['POST'])
 def generate_final_assets_endpoint():
     """Stage 3: AI generates assets, Python publishes them."""
     final_bom_data = session.get('final_bom_data')
     project_page_id = session.get('project_page_id')
-    if not final_bom_data or not project_page_id: return jsonify({"error": "Session data missing."}), 400
+    project_plan = session.get('project_plan')
+    if not all([final_bom_data, project_page_id, project_plan]):
+        return jsonify({"error": "Session data missing."}), 400
 
     print(f"🚀 Stage 3: Generating final assets...")
     try:
+        # === PART 1: The "Thinker" (AI Crew) ===
         crew_manager = ProjectPartnerCrew()
-        inputs = {'final_bom': final_bom_data}
+        inputs = {'final_bom': final_bom_data, 'project_plan': project_plan}
         ai_result = crew_manager.final_assets_crew().kickoff(inputs=inputs)
 
-        circuit_diagram = ai_result.tasks_outputs[0].raw_output
+        # The output of each task is now clearly separated in the results
+        diagram_json_output = ai_result.tasks_outputs[0].raw_output
         code_sketch = ai_result.tasks_outputs[1].raw_output
         
-        print("🤖 Python is now appending assets to the Notion page...")
+        # === PART 2: The "Doer" (Python Code) ===
+        print("🤖 Python is now parsing and appending assets to the Notion page...")
         
-        final_content = f"## Circuit Diagram\n\n```mermaid\n{circuit_diagram}\n```\n\n## Arduino Code\n\n```cpp\n{code_sketch}\n```"
+        # This helper function robustly extracts the JSON block.
+        def extract_json_block(text: str) -> dict:
+            match = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+            if not match:
+                try: return json.loads(text)
+                except json.JSONDecodeError: raise ValueError("Could not find a valid JSON block in the diagram agent's output.")
+            return json.loads(match.group(1))
         
+        diagram_data = extract_json_block(diagram_json_output)
+        workflow_mermaid = diagram_data.get("workflow_mermaid", "Error: Workflow diagram not found.")
+        architecture_mermaid = diagram_data.get("architecture_mermaid", "Error: Architecture diagram not found.")
+        # We now extract the new circuit diagram from the same JSON
+        circuit_mermaid = diagram_data.get("circuit_mermaid", "Error: Circuit diagram not found.")
+
+        # Format all the final content for Notion
+        final_content = (
+            f"## Workflow Diagram\n\n```mermaid\n{workflow_mermaid}\n```\n\n"
+            f"## Architecture Diagram\n\n```mermaid\n{architecture_mermaid}\n```\n\n"
+            f"## Circuit Diagram\n\n```mermaid\n{circuit_mermaid}\n```\n\n"
+            f"## Arduino Code\n\n```cpp\n{code_sketch}\n```"
+        )
+        
+        # Append all content to the main project page at once
         append_result = composio_instance.tools.execute(
             user_id=MY_APP_USER_ID,
             slug="NOTION_ADD_MULTIPLE_PAGE_CONTENT",
-            arguments={"parent_block_id": project_page_id, "content_blocks": [{"content": final_content}]}
+            arguments={"parent_block_id": project_page_id, "content_blocks": [{"content_block": {"content": final_content}}]}
         )
-        if not append_result.get("successful"): raise Exception(f"Failed to append assets: {append_result.get('error')}")
+        if not append_result.get("successful"):
+            raise Exception(f"Failed to append final assets: {append_result.get('error')}")
 
         print("✅ Final assets appended successfully.")
         

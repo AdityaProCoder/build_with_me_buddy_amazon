@@ -33,15 +33,15 @@ agents:
       
     reasoning: false
 
-  # ... (circuit_designer and code_wizard are correct) ...
-  circuit_designer:
-    role: "Circuit Diagram Designer"
-    goal: "Create a clear, Mermaid.js circuit diagram based on the provided component list."
-    backstory: "A visual illustrator who translates a component list into a wiring diagram."
-    reasoning: true
+  diagram_specialist:
+    role: "Mermaid Diagram Specialist"
+    goal: "Generate two valid Mermaid diagram source strings (a workflow and an architecture diagram) based on a project summary, and return them in a single JSON object."
+    backstory: "You are a meticulous and strict generator of Mermaid diagrams. You always follow formatting rules precisely and return ONLY a valid JSON object with the requested diagram source code. You do not render images; you only produce the text-based code for the diagrams."
+    reasoning: false # Reasoning is needed to generate the complex diagrams.
+
 
   code_wizard:
     role: "Embedded Systems Programmer"
     goal: "Write a complete Arduino sketch based on the provided component list."
     backstory: "A seasoned programmer who writes clean, beginner-friendly code."
-    reasoning: true
+    reasoning: false

@@ -64,10 +64,25 @@ tasks:
       ---
     expected_output: "A user summary, '---DATA_SEPARATOR---', and a detailed markdown table."
 
-  circuit_design_task:
-    description: "Using the final BOM markdown table, create a Mermaid.js circuit diagram. Final BOM: {final_bom}"
-    expected_output: "A code block containing the Mermaid.js diagram."
+  diagram_generation_task:
+    description: >
+      You are a strict Mermaid diagram generator. Your task is to analyze the following project summary, which includes an initial plan and a final Bill of Materials.
+      Based on this information, produce TWO valid Mermaid source strings: one for the project's workflow and one for its system architecture.
 
+      Hard rules:
+      - Return ONLY a JSON object in a ```json fence with keys: workflow_mermaid, architecture_mermaid, title_workflow, title_architecture.
+      - Each Mermaid string must start with its directive (e.g., 'flowchart TD') and contain NO code fences.
+      - Use ONLY square-box nodes (e.g., 'Node[Text]'). Do not use round brackets like '()' or '(())'.
+      - Node IDs must be simple (letters, numbers, underscores).
+
+      Here is the project summary:
+      ---
+      Initial Plan: {project_plan}
+      Final Bill of Materials: {final_bom}
+      ---
+    expected_output: "A single, clean JSON object in a ```json code fence, containing the two Mermaid diagram source strings and their titles."
+
+  
   code_generation_task:
     description: "Write a complete Arduino sketch based on the final BOM markdown table. Final BOM: {final_bom}"
     expected_output: "A code block containing the Arduino code."

@@ -9,3 +9,4 @@ exa-py
 pydantic
 crewai[google-genai]
 litellm
+shutilwhich

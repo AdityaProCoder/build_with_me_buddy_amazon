@@ -28,7 +28,7 @@ class ProjectPartnerCrew:
             'project_namer': Agent(config=AGENTS_CONFIG['agents']['project_namer'], llm=worker_llm, memory=True, verbose=True),
             'system_designer': Agent(config=AGENTS_CONFIG['agents']['system_designer'], llm=worker_llm, memory=True, verbose=True),
             'parts_sourcer': Agent(config=AGENTS_CONFIG['agents']['parts_sourcer'], tools=tools_for_agents, llm=worker_llm, memory=True, verbose=True, max_iter=25, max_rpm=4),
-            'circuit_designer': Agent(config=AGENTS_CONFIG['agents']['circuit_designer'], llm=worker_llm, memory=True, verbose=True),
+            'diagram_specialist': Agent(config=AGENTS_CONFIG['agents']['diagram_specialist'], llm=worker_llm, memory=True, verbose=True, max_rpm=4),
             'code_wizard': Agent(config=AGENTS_CONFIG['agents']['code_wizard'], llm=worker_llm, memory=True, verbose=True)
         }
 
@@ -53,7 +53,23 @@ class ProjectPartnerCrew:
         return Crew(agents=[self.agents['parts_sourcer']], tasks=[task], process=Process.sequential, verbose=True)
 
     def final_assets_crew(self):
-        """Generates the final technical assets: circuit diagram and code."""
-        circuit_task = Task(**TASKS_CONFIG['tasks']['circuit_design_task'], agent=self.agents['circuit_designer'])
-        code_task = Task(**TASKS_CONFIG['tasks']['code_generation_task'], agent=self.agents['code_wizard'], context=[circuit_task])
-        return Crew(agents=[self.agents['circuit_designer'], self.agents['code_wizard']], tasks=[circuit_task, code_task], process=Process.sequential, verbose=True)
+        """Generates the final technical assets: diagrams and code."""
+        # The diagram task now runs first and creates all three diagrams.
+        diagram_task = Task(
+            **TASKS_CONFIG['tasks']['diagram_generation_task'],
+            agent=self.agents['diagram_specialist']
+        )
+        
+        # The code task runs next, using the same BOM input.
+        code_task = Task(
+            **TASKS_CONFIG['tasks']['code_generation_task'],
+            agent=self.agents['code_wizard'],
+            context=[diagram_task]
+        )
+        
+        return Crew(
+            agents=[self.agents['diagram_specialist'], self.agents['code_wizard']],
+            tasks=[diagram_task, code_task],
+            process=Process.sequential,
+            verbose=True
+        )
