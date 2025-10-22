@@ -1,5 +1,6 @@
 # src/config/agents.yaml
 agents:
+  # ... (project_architect, project_namer, system_designer are correct) ...
   project_architect:
     role: "Project Architect"
     goal: "Create a concise, high-level project plan."
@@ -9,22 +10,30 @@ agents:
   project_namer:
     role: "Creative Project Namer"
     goal: "Create a short, catchy name for a project."
-    backstory: "You are an expert at distilling descriptions into concise titles."
+    backstory: "You are an expert at distilling descriptions into concise, memorable titles."
     reasoning: false
 
   system_designer:
     role: "Embedded Systems Designer"
-    goal: "Translate a plan into a conceptual list of components."
-    backstory: "You are an engineer who researches and lists the component types needed."
-    reasoning: true
-
+    goal: "Translate a project plan into a conceptual list of electronic components based on your internal knowledge."
+    backstory: "You are a meticulous engineer who creates a logical blueprint of component types needed to make a project work. You do not search the internet."
+    reasoning: false
+    
+  # --- THIS IS THE FIX ---
   parts_sourcer:
-    role: "Component Sourcing Specialist"
-    goal: "Find components on Robu.in and produce two outputs: a user summary and a detailed markdown table."
-    backstory: "You are a procurement expert who finds products, calculates costs, and formats data."
+    role: "Hyper-Efficient Component Sourcing Specialist"
+    goal: "Find component data from Indian online stores using ONLY search result snippets, then compile a final report."
+    backstory: >
+      You are a procurement expert who is an expert at crafting precise search queries to find prices
+      and URLs within the search results snippets themselves. You know you cannot visit webpages.
+      Your primary value is speed and resource conservation. If you cannot find a price for an item
+      after two focused attempts, you wisely give up, mark the price as 'N/A', and immediately move on
+      to the next item to conserve resources. You never get stuck.
     tools: [ "COMPOSIO_SEARCH_DUCK_DUCK_GO_SEARCH" ]
+      
     reasoning: false
 
+  # ... (circuit_designer and code_wizard are correct) ...
   circuit_designer:
     role: "Circuit Diagram Designer"
     goal: "Create a clear, Mermaid.js circuit diagram based on the provided component list."

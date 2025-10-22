@@ -22,12 +22,12 @@ with open('src/config/tasks.yaml', 'r') as f:
 
 class ProjectPartnerCrew:
     def __init__(self):
-        # Create all agent instances
+        # Create all agent instances. The parts_sourcer now only has the search tool.
         self.agents = {
-            'project_architect': Agent(config=AGENTS_CONFIG['agents']['project_architect'], llm=manager_llm, memory=True, verbose=True),
+            'project_architect': Agent(config=AGENTS_CONFIG['agents']['project_architect'], llm=worker_llm, memory=True, verbose=True),
             'project_namer': Agent(config=AGENTS_CONFIG['agents']['project_namer'], llm=worker_llm, memory=True, verbose=True),
-            'system_designer': Agent(config=AGENTS_CONFIG['agents']['system_designer'], llm=worker_llm, memory=True, verbose=True, max_iter=5),
-            'parts_sourcer': Agent(config=AGENTS_CONFIG['agents']['parts_sourcer'], tools=tools_for_agents, llm=worker_llm, memory=True, verbose=True, max_iter=8),
+            'system_designer': Agent(config=AGENTS_CONFIG['agents']['system_designer'], llm=worker_llm, memory=True, verbose=True),
+            'parts_sourcer': Agent(config=AGENTS_CONFIG['agents']['parts_sourcer'], tools=tools_for_agents, llm=worker_llm, memory=True, verbose=True, max_iter=25, max_rpm=4),
             'circuit_designer': Agent(config=AGENTS_CONFIG['agents']['circuit_designer'], llm=worker_llm, memory=True, verbose=True),
             'code_wizard': Agent(config=AGENTS_CONFIG['agents']['code_wizard'], llm=worker_llm, memory=True, verbose=True)
         }

@@ -29,28 +29,36 @@ tasks:
     description: "Create a short, catchy name (3-5 words max) for the project: {project_details}"
     expected_output: "A single string containing the short project name."
 
-    # In src/config/tasks.yaml
+    
 
   component_reasoning_task:
     description: >
       Read the project plan. Based on your internal knowledge as an expert engineer,
       create a conceptual list of components.
       
-      CRITICAL INSTRUCTION: You MUST ONLY list physical, purchasable hardware components.
-      Do NOT list software, libraries, firmware, algorithms, data, or any other non-physical items.
+      CRITICAL INSTRUCTION 1: You MUST ONLY list electronic and electro-mechanical components
+      (e.g., microcontrollers, sensors, motors, relays).
+      Do NOT list passive, non-electronic items like tubing, hoses, containers, frames, or fasteners.
+
+      CRITICAL INSTRUCTION 2: Your list MUST contain a maximum of 8 essential components.
       
       Project Plan: {project_plan}
     expected_output: "A markdown table with columns: 'Sl no.', 'Component Name', 'Quantity', 'Purpose'."
 
   component_sourcing_task:
     description: >
-      You have been given a markdown table of conceptual components below. For each component in the table,
-      use your search tool to find a specific product on `robu.in`. Your search query should be precise.
-      You must produce two outputs separated by '---DATA_SEPARATOR---':
-      1. A simple user-facing summary with categories and a calculated total price.
-      2. A detailed markdown table with 'Sl No', 'Component Name', 'Quantity', 'Price', 'URL'.
+      You are a hyper-efficient data-gathering agent. You have been given a markdown table of conceptual components.
+      For each component, you MUST follow this exact, resilient process:
+      1.  **SEARCH:** Use your search tool with a precise query like '"[Component Name]" price from a reputable Indian electronics store'
+          to try and find the price in the search result snippet.
+      2.  **VALIDATE:** Look at the `Observation`. If a price is clearly visible, record it and the URL.
+      3.  **FALLBACK:** If the price is NOT in the snippet after a maximum of two (2) search attempts for a single component,
+          you MUST stop searching for that component, mark its price as 'N/A', and immediately move on to the next one.
       
-      Here is the conceptual component table:
+      After processing ALL components, compile your final report in two parts, separated by '---DATA_SEPARATOR---'.
+      Part 1 is the user-facing summary. Part 2 is the detailed markdown table.
+
+      Here is the conceptual component table you must use:
       ---
       {final_bom}
       ---
