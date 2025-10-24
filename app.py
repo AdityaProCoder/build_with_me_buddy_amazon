@@ -243,11 +243,16 @@ def generate_final_assets_endpoint():
         # Prepare content blocks for the Notion page, including diagrams and code.
         final_content_blocks = [
             {"content_block": {"content": "## Workflow Diagram"}},
-            {"content_block": {"type": "code", "code": { "language": "mermaid", "rich_text": [{"type": "text", "text": {"content": workflow_mermaid}}] }}},
+            # Wrap the mermaid diagram source in a Markdown code block
+            {"content_block": {"content": f"```mermaid\n{workflow_mermaid}\n```"}},
+            
             {"content_block": {"content": "## Architecture Diagram"}},
-            {"content_block": {"type": "code", "code": { "language": "mermaid", "rich_text": [{"type": "text", "text": {"content": architecture_mermaid}}] }}},
+            # Wrap the architecture diagram source in a Markdown code block
+            {"content_block": {"content": f"```mermaid\n{architecture_mermaid}\n```"}},
+
             {"content_block": {"content": "## Arduino Code"}},
-            {"content_block": {"type": "code", "code": { "language": "cpp", "rich_text": [{"type": "text", "text": {"content": clean_code_block(code_sketch, 'cpp')}}] }}}
+            # Wrap the Arduino code in a Markdown code block, specifying the language
+            {"content_block": {"content": f"```cpp\n{clean_code_block(code_sketch, 'cpp')}\n```"}}
         ]
 
         # Append the generated content to the Notion guide page.
